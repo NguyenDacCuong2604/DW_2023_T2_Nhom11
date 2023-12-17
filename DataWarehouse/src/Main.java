@@ -52,6 +52,14 @@ public class Main {
                     else if (status.equals("TRANSFORMED")) {
                         controller.loadToWH(connection, config);
                     }
+                    //(Load To Aggregate)11. Kiểm tra xem status có phải là WH_LOADED hay không
+                    else if (status.equals("WH_LOADED")) {
+                        controller.loadToAggregate(connection, config);
+                    }
+                    //(Load To DataMart)11. Kiểm tra xem status có phải là AGGREGATED hay không
+                    else if (status.equals("AGGREGATED")) {
+                        controller.loadToDataMart(connection, config);
+                    }
                 }
             }
             // 6. Đóng kết nối database
