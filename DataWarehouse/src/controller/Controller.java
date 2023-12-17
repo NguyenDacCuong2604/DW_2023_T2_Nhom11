@@ -414,4 +414,112 @@ public class Controller {
         }
     }
 
+    public static void loadToAggregate(Connection connection, Config config){
+        ForecastResultsDao dao = new ForecastResultsDao();
+        //(Load To Aggregate)12. Cập nhật  trạng thái của config là đang xử lý (isProcessing=true)
+        dao.updateIsProcessing(connection, config.getId(), true);
+        //(Load To Aggregate)13. Cập nhật status của config thành AGGREGATING (status=AGGREGATING)
+        dao.updateStatus(connection, config.getId(), "AGGREGATING");
+        //(Load To Aggregate)14. Thêm thông tin bắt đầu load to aggregate vào log
+        dao.insertLog(connection, config.getId(), "AGGREGATING", "Start aggregate");
+        //(Load To Aggregate)15. Load Data To Aggregate
+        try(CallableStatement callableStatement = connection.prepareCall("{CALL LoadDataToAggregate()}")){
+            callableStatement.execute();
+            //(Load To Aggregate)16. Cập nhật status của config thành AGGREGATED
+            dao.updateStatus(connection, config.getId(),"AGGREGATED");
+            //(Load To Aggregate)17. Thêm thông tin đã load data to aggregate vào log
+            dao.insertLog(connection, config.getId(), "AGGREGATED", "Load aggregate success");
+            System.out.println("aggregate success!");
+            //(Load To Aggregate)18. Gọi function loadToDataMart(connect, config)
+            loadToDataMart(connection, config);
+        }catch (SQLException e) {
+            e.printStackTrace();
+            //(Load To Aggregate)19. Cập nhật status của config thành ERROR
+            dao.updateStatus(connection, config.getId(), "ERROR");
+            //(Load To Aggregate)20. Thêm lỗi vào log
+            dao.insertLog(connection, config.getId(), "ERROR", "Error with message: "+e.getMessage());
+            //(Load To Aggregate)21. Chỉnh Flag=0 cho config
+            dao.setFlagIsZero(connection, config.getId());
+            //(Load To Aggregate)22. Cập nhật trạng thái của config là không xử lý (isProcessing=false)
+            dao.updateIsProcessing(connection, config.getId(), false);
+            //(Load To Aggregate)23. Send mail thông báo lỗi cho email của author
+            //send mail
+            String mail = config.getEmail();
+            DateTimeFormatter dt = DateTimeFormatter.ofPattern("hh:mm:ss dd/MM/yyyy");
+            LocalDateTime nowTime = LocalDateTime.now();
+            String timeNow = nowTime.format(dt);
+            String subject = "Error Date: " + timeNow;
+            String message = "Error with message: "+e.getMessage();
+            String pathLogs = createFIleLog(dao.getLogs(connection, config.getId()));
+            if(pathLogs!=null){
+                SendMail.sendMail(mail, subject, message, pathLogs);
+            }
+            else SendMail.sendMail(mail, subject, message);
+        }
+    }
+
+    public static void loadToDataMart(Connection connection, Config config){
+        ForecastResultsDao dao = new ForecastResultsDao();
+        //(Load To DataMart)12. Cập nhật  trạng thái của config là đang xử lý (isProcessing=true)
+        dao.updateIsProcessing(connection, config.getId(), true);
+        //(Load To DataMart)13. Cập nhật status của config thành MLOADING (status=MLOADING)
+        dao.updateStatus(connection, config.getId(), "MLOADING");
+        //(Load To DataMart)14. Thêm thông tin bắt đầu load to datamart vào log
+        dao.insertLog(connection, config.getId(), "MLOADING", "Start load data to DataMart");
+        //(Load To DataMart)15. Load Data To DataMart
+        try(CallableStatement callableStatement = connection.prepareCall("{CALL LoadToDM()}")){
+            callableStatement.execute();
+            //(Load To DataMart)16. Cập nhật status của config thành MLOADED
+            dao.updateStatus(connection, config.getId(), "MLOADED");
+            //(Load To DataMart)17. Thêm thông tin đã load data to datamart vào log
+            dao.insertLog(connection, config.getId(), "MLOADED", "Load to mart success");
+            System.out.println("load to mart success!");
+            //finish
+            //(Load To DataMart)18. Cập nhật status của config thành FINISHED
+            dao.updateStatus(connection, config.getId(), "FINISHED");
+            //(Load To DataMart)19. Thêm thông tin đã hoàn thành tiến trình vào log
+            dao.insertLog(connection, config.getId(), "FINISHED", "Finished!");
+            //(Load To DataMart)20. Chỉnh Flag=0 cho config
+            dao.setFlagIsZero(connection, config.getId());
+            //(Load To DataMart)21. Cập nhật trạng thái của config là không xử lý (isProcessing=false)
+            dao.updateIsProcessing(connection, config.getId(), false);
+            //(Load To DataMart)22. Send mail thông báo tiến trình hoàn tất cho email của author
+            //send mail khi đã hoàn thành việc lấy data load vào warehouse
+            String mail = config.getEmail();
+            DateTimeFormatter dt = DateTimeFormatter.ofPattern("hh:mm:ss dd/MM/yyyy");
+            LocalDateTime nowTime = LocalDateTime.now();
+            String timeNow = nowTime.format(dt);
+            String subject = "Success DataWarehouse Date: " + timeNow;
+            String message = "Success";
+            String pathLogs = createFIleLog(dao.getLogs(connection, config.getId()));
+            if(pathLogs!=null){
+                SendMail.sendMail(mail, subject, message, pathLogs);
+            }
+            else SendMail.sendMail(mail, subject, message);
+        }catch (SQLException e){
+            e.printStackTrace();
+            //(Load To DataMart)23. Cập nhật status của config thành ERROR
+            dao.updateStatus(connection, config.getId(), "ERROR");
+            //(Load To DataMart)24. Thêm lỗi vào log
+            dao.insertLog(connection, config.getId(), "ERROR", "Error with message: "+e.getMessage());
+            //(Load To DataMart)25. Chỉnh Flag=0 cho config
+            dao.setFlagIsZero(connection, config.getId());
+            //(Load To DataMart)26. Cập nhật trạng thái của config là không xử lý (isProcessing=false)
+            dao.updateIsProcessing(connection, config.getId(), false);
+            //(Load To DataMart)27. Send mail thông báo lỗi cho email của author
+            //send mail
+            String mail = config.getEmail();
+            DateTimeFormatter dt = DateTimeFormatter.ofPattern("hh:mm:ss dd/MM/yyyy");
+            LocalDateTime nowTime = LocalDateTime.now();
+            String timeNow = nowTime.format(dt);
+            String subject = "Error Date: " + timeNow;
+            String message = "Error with message: "+e.getMessage();
+            String pathLogs = createFIleLog(dao.getLogs(connection, config.getId()));
+            if(pathLogs!=null){
+                SendMail.sendMail(mail, subject, message, pathLogs);
+            }
+            else SendMail.sendMail(mail, subject, message);
+        }
+    }
+
 }
