@@ -209,8 +209,8 @@ public class Controller {
             dao.updateStatus(connection, config.getId(), "CRAWLED");
             //(Extract)29. Thêm thông tin đã crawl dữ liệu vào log
             dao.insertLog(connection, config.getId(), "CRAWLED", "End crawl, data to "+pathSource);
-
-            //extractToStaging(connection, config);
+            //
+            extractToStaging(connection, config);
         } catch (IOException e) {
             //(Extract)22. Cập nhật status của config thành ERROR
             dao.updateStatus(connection, config.getId(), "ERROR");
@@ -220,6 +220,83 @@ public class Controller {
             dao.setFlagIsZero(connection, config.getId());
             //(Extract)25. Cập nhật trạng thái của config là không xử lý (isProcessing=false)
             dao.updateIsProcessing(connection, config.getId(), false);
+            String mail = config.getEmail();
+            DateTimeFormatter dt = DateTimeFormatter.ofPattern("hh:mm:ss dd/MM/yyyy");
+            LocalDateTime nowTime = LocalDateTime.now();
+            String timeNow = nowTime.format(dt);
+            String subject = "Error Date: " + timeNow;
+            String message = "Error with message: "+e.getMessage();
+            String pathLogs = createFIleLog(dao.getLogs(connection, config.getId()));
+            if(pathLogs!=null){
+                SendMail.sendMail(mail, subject, message, pathLogs);
+            }
+            else SendMail.sendMail(mail, subject, message);
+        }
+    }
+    public static void extractToStaging(Connection connection, Config config){
+        ForecastResultsDao dao = new ForecastResultsDao();
+        //(Extract to Staging)12. Cập nhật  trạng thái của config là đang xử lý (isProcessing=true)
+        dao.updateIsProcessing(connection, config.getId(), true);
+        //(Extract to Staging)13. Cập nhật status của config thành EXTRACTING (status=EXTRACTING)
+        dao.updateStatus(connection, config.getId(), "EXTRACTING");
+        //(Extract to Staging)14. Thêm thông tin đang extract to staging vào log
+        dao.insertLog(connection, config.getId(), "EXTRACTING", "Start extract data");
+        //(Extract to Staging)15. Truncate table staging trong database staging
+        //truncate table
+        truncateTable(connection, config);
+        //(Extract to Staging)16. Thêm thông tin đã truncate table staging vào log
+        dao.insertLog(connection, config.getId(), "EXTRACTING", "Truncate table staging");
+        //(Extract to Staging)17. Load dữ liệu file CSV vào table Staging bằng lệnh "Load Data Infile" trong mysql
+        //load data to staging
+        String sqlLoadData = "LOAD DATA INFILE ? INTO TABLE staging.staging FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\\n' IGNORE 0 LINES (\n" +
+                "    cod, message, cnt, city_id, city_name, city_latitude, city_longitude, city_country_code, city_population,\n" +
+                "    city_timezone, city_sunrise, city_sunset, dt, dt_txt, main_temp, main_feels_like, main_temp_min,\n" +
+                "    main_temp_max, main_pressure, main_sea_level, main_grnd_level, main_humidity, main_temp_kf, weather_id,\n" +
+                "    weather_main, weather_description, weather_icon, clouds_all, wind_speed, wind_deg, wind_gust, visibility,\n" +
+                "    pop, rain_3h, sys_pod, created_date)";
+        try {
+            //Load data to staging
+            PreparedStatement psLoadData = connection.prepareStatement(sqlLoadData);
+            psLoadData.setString(1, config.getDetailPathFile());
+            psLoadData.execute();
+            //(Extract to Staging)18. Thêm thông tin đang load dữ liệu vào staging vào log
+            dao.insertLog(connection, config.getId(), "EXTRACTING", "Load data to staging");
+            System.out.println("Load staging success");
+            //(Extract to Staging)19. Cập nhật status của config thành EXTRACTED
+            dao.updateStatus(connection, config.getId(), "EXTRACTED");
+            //(Extract to Staging)20. Thêm thông tin đã load dữ liệu vào staging vào log
+            dao.insertLog(connection, config.getId(), "EXTRACTED", "Load data success");
+            //
+            //transformData(connection, config);
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            dao.updateStatus(connection, config.getId(), "ERROR");
+            dao.insertLog(connection, config.getId(), "ERROR", "Error with message: "+e.getMessage());
+            dao.setFlagIsZero(connection, config.getId());
+            dao.updateIsProcessing(connection, config.getId(), false);
+            String mail = config.getEmail();
+            DateTimeFormatter dt = DateTimeFormatter.ofPattern("hh:mm:ss dd/MM/yyyy");
+            LocalDateTime nowTime = LocalDateTime.now();
+            String timeNow = nowTime.format(dt);
+            String subject = "Error Date: " + timeNow;
+            String message = "Error with message: "+e.getMessage();
+            String pathLogs = createFIleLog(dao.getLogs(connection, config.getId()));
+            if(pathLogs!=null){
+                SendMail.sendMail(mail, subject, message, pathLogs);
+            }
+            else SendMail.sendMail(mail, subject, message);
+        }
+    }
+
+    public static void truncateTable(Connection connection, Config config) {
+        ForecastResultsDao dao = new ForecastResultsDao();
+        try (CallableStatement callableStatement = connection.prepareCall("{CALL truncate_staging_table()}")) {
+            callableStatement.execute();
+            dao.insertLog(connection, config.getId(), "EXTRACTING", "Truncate success");
+        } catch (SQLException e) {
+            e.printStackTrace();
+            dao.insertLog(connection, config.getId(), "ERROR", "Error with message: "+e.getMessage());
             String mail = config.getEmail();
             DateTimeFormatter dt = DateTimeFormatter.ofPattern("hh:mm:ss dd/MM/yyyy");
             LocalDateTime nowTime = LocalDateTime.now();

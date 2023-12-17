@@ -40,6 +40,10 @@ public class Main {
                     else if (status.equals("OFF") || status.equals("FINISHED")) {
                         controller.getData(connection, config);
                     }
+                    //(Extract To Staging)11. Kiểm tra xem status có phải là CRAWLED hay không
+                    else if (status.equals("CRAWLED")) {
+                        controller.extractToStaging(connection, config);
+                    }
                 }
             }
             // 6. Đóng kết nối database
