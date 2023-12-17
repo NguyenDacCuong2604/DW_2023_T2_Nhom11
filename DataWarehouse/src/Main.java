@@ -44,6 +44,14 @@ public class Main {
                     else if (status.equals("CRAWLED")) {
                         controller.extractToStaging(connection, config);
                     }
+                    //(Transform Data)11. Kiểm tra xem status có phải là EXTRACTED hay không
+                    else if (status.equals("EXTRACTED")) {
+                        controller.transformData(connection, config);
+                    }
+                    //(Load To WH)11. Kiểm tra xem status có phải là TRANSFORMED hay không
+                    else if (status.equals("TRANSFORMED")) {
+                        controller.loadToWH(connection, config);
+                    }
                 }
             }
             // 6. Đóng kết nối database

@@ -267,7 +267,7 @@ public class Controller {
             //(Extract to Staging)20. Thêm thông tin đã load dữ liệu vào staging vào log
             dao.insertLog(connection, config.getId(), "EXTRACTED", "Load data success");
             //
-            //transformData(connection, config);
+            transformData(connection, config);
 
         } catch (SQLException e) {
             e.printStackTrace();
@@ -323,4 +323,95 @@ public class Controller {
         // Split the string into an array of strings, trim each string, and then collect into a list
         return Arrays.stream(cities.split(",")).map(String::trim).collect(Collectors.toList());
     }
+
+    public static void transformData(Connection connection, Config config){
+        ForecastResultsDao dao = new ForecastResultsDao();
+        dao.updateIsProcessing(connection, config.getId(), true);
+        //(Transform Data)13. Cập nhật status của config thành TRANSFORMING (status=TRANSFORMING)
+        dao.updateStatus(connection, config.getId(), "TRANSFORMING");
+        //(Transform Data)14. Thêm thông tin đang transform vào log
+        dao.insertLog(connection, config.getId(), "TRANSFORMING", "Start transform");
+        //(Transform Data)15. Transform Data
+        try (CallableStatement callableStatement = connection.prepareCall("{CALL TransformData()}")) {
+            // Thực hiện stored procedure
+            callableStatement.execute();
+            //(Transform Data)16. Cập nhật status của config thành TRANSFORMED
+            dao.updateStatus(connection, config.getId(), "TRANSFORMED");
+            //(Transform Data)17. Thêm thông tin đã transform data vào log
+            dao.insertLog(connection, config.getId(), "TRANSFORMED", "Transform success");
+            System.out.println("transform success!");
+            //(Transform Data)18. Gọi function loadToWH(connect, config)
+            loadToWH(connection, config);
+        } catch (SQLException e) {
+            // Xử lý lỗi khi thực hiện stored procedure
+            e.printStackTrace();
+            //(Transform Data)19. Cập nhật status của config thành ERROR
+            dao.updateStatus(connection, config.getId(), "ERROR");
+            //(Transform Data)20. Thêm lỗi vào log
+            dao.insertLog(connection, config.getId(), "ERROR", "Error with message: "+e.getMessage());
+            //(Transform Data)21. Chỉnh Flag=0 cho config
+            dao.setFlagIsZero(connection, config.getId());
+            //(Transform Data)22. Cập nhật trạng thái của config là không xử lý (isProcessing=false)
+            dao.updateIsProcessing(connection, config.getId(), false);
+            //(Transform Data)23. Send mail thông báo lỗi cho email của author
+            String mail = config.getEmail();
+            DateTimeFormatter dt = DateTimeFormatter.ofPattern("hh:mm:ss dd/MM/yyyy");
+            LocalDateTime nowTime = LocalDateTime.now();
+            String timeNow = nowTime.format(dt);
+            String subject = "Error Date: " + timeNow;
+            String message = "Error with message: "+e.getMessage();
+            String pathLogs = createFIleLog(dao.getLogs(connection, config.getId()));
+            if(pathLogs!=null){
+                SendMail.sendMail(mail, subject, message, pathLogs);
+            }
+            else SendMail.sendMail(mail, subject, message);
+        }
+    }
+
+    public static void loadToWH(Connection connection, Config config){
+        ForecastResultsDao dao = new ForecastResultsDao();
+        //(Load To WH)12. Cập nhật  trạng thái của config là đang xử lý (isProcessing=true)
+        dao.updateIsProcessing(connection, config.getId(), true);
+        //(Load To WH)13. Cập nhật status của config thành WH_LOADING (status=WH_LOADING)
+        dao.updateStatus(connection, config.getId(), "WH_LOADING");
+        //(Load To WH)14. Thêm thông tin bắt đầu load to wh vào log
+        dao.insertLog(connection, config.getId(), "WH_LOADING", "Start load data to Warehouse");
+        //(Load To WH)15. Load Data To WH
+        try (CallableStatement callableStatement = connection.prepareCall("{CALL LoadDataToWH()}")) {
+            // Thực hiện stored procedure
+            callableStatement.execute();
+            //(Load To WH)16. Cập nhật status của config thành WH_LOADED
+            dao.updateStatus(connection, config.getId(), "WH_LOADED");
+            //(Load To WH)17. Thêm thông tin đã load data to WH vào log
+            dao.insertLog(connection, config.getId(), "WH_LOADED", "Load to warehouse success");
+            System.out.println("load to warehouse success!");
+            //(Load To WH)18. Gọi function loadToAggregate(connect, config)
+            //loadToAggregate(connection, config);
+        } catch (SQLException e) {
+            // Xử lý lỗi khi thực hiện stored procedure
+            e.printStackTrace();
+            //(Load To WH)19. Cập nhật status của config thành ERROR
+            dao.updateStatus(connection, config.getId(), "ERROR");
+            //(Load To WH)20. Thêm lỗi vào log
+            dao.insertLog(connection, config.getId(), "ERROR", "Error with message: "+e.getMessage());
+            //(Load To WH)21. Chỉnh Flag=0 cho config
+            dao.setFlagIsZero(connection, config.getId());
+            //(Load To WH)22. Cập nhật trạng thái của config là không xử lý (isProcessing=false)
+            dao.updateIsProcessing(connection, config.getId(), false);
+            //(Load To WH)23. Send mail thông báo lỗi cho email của author
+            //send mail
+            String mail = config.getEmail();
+            DateTimeFormatter dt = DateTimeFormatter.ofPattern("hh:mm:ss dd/MM/yyyy");
+            LocalDateTime nowTime = LocalDateTime.now();
+            String timeNow = nowTime.format(dt);
+            String subject = "Error Date: " + timeNow;
+            String message = "Error with message: "+e.getMessage();
+            String pathLogs = createFIleLog(dao.getLogs(connection, config.getId()));
+            if(pathLogs!=null){
+                SendMail.sendMail(mail, subject, message, pathLogs);
+            }
+            else SendMail.sendMail(mail, subject, message);
+        }
+    }
+
 }
