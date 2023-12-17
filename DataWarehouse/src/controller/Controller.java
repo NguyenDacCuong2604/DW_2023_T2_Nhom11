@@ -386,7 +386,7 @@ public class Controller {
             dao.insertLog(connection, config.getId(), "WH_LOADED", "Load to warehouse success");
             System.out.println("load to warehouse success!");
             //(Load To WH)18. Gọi function loadToAggregate(connect, config)
-            //loadToAggregate(connection, config);
+            loadToAggregate(connection, config);
         } catch (SQLException e) {
             // Xử lý lỗi khi thực hiện stored procedure
             e.printStackTrace();
