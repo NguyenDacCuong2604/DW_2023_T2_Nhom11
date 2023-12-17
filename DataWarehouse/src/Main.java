@@ -1,17 +1,51 @@
-// Press Shift twice to open the Search Everywhere dialog and type `show whitespaces`,
-// then press Enter. You can now see whitespace characters in your code.
+import controller.Controller;
+import dao.ForecastResultsDao;
+import database.DBConnection;
+import entity.Config;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.List;
+
 public class Main {
+
     public static void main(String[] args) {
-        // Press Alt+Enter with your caret at the highlighted text to see how
-        // IntelliJ IDEA suggests fixing it.
-        System.out.printf("Hello and welcome!");
-
-        // Press Shift+F10 or click the green arrow button in the gutter to run the code.
-        for (int i = 1; i <= 5; i++) {
-
-            // Press Shift+F9 to start debugging your code. We have set one breakpoint
-            // for you, but you can always add more by pressing Ctrl+F8.
-            System.out.println("i = " + i);
+        DBConnection db = new DBConnection();
+        ForecastResultsDao dao = new ForecastResultsDao();
+        //3. Kết nối với với database Controller
+        try (Connection connection = db.getConnection()) {
+            //4. Lấy danh sách config trong table config có flag = 1
+            List<Config> configs = dao.getConfigs(connection);
+            Controller controller = new Controller();
+            //5. Duyệt for lấy lần lượt từng config trong list
+            for (Config config : configs) {
+                int maxWait = 0;
+                //7. Khi có processing nào chạy và thời gian dưới 3 phút
+                while (dao.getProcessingCount(connection) != 0 && maxWait <= 3) {
+                    System.out.println("Wait...");
+                    // 8. Chờ 1 phút, tăng biến thời gian
+                    maxWait++;
+                    Thread.sleep(60000); //60s
+                }
+                //9. Kiểm tra xem còn processing nào đang chạy không
+                if (dao.getProcessingCount(connection) == 0) { //Hết process đang chạy
+                    System.out.println("Start");
+                    //10. Lấy status của config
+                    String status = config.getStatus();
+                    //Nếu lỗi thì không cần thực hiện
+                    if (status.equals("ERROR")) {
+                        continue;
+                    }
+                    //(Extract)11. Kiểm tra xem status có phải là OFF hay FINISHED hay không
+                    else if (status.equals("OFF") || status.equals("FINISHED")) {
+                        controller.getData(connection, config);
+                    }
+                }
+            }
+            // 6. Đóng kết nối database
+            db.closeConnection();
+        } catch (SQLException | InterruptedException e) {
+            throw new RuntimeException(e);
         }
     }
 }
