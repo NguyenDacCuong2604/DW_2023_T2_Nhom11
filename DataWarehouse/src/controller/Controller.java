@@ -209,8 +209,10 @@ public class Controller {
             dao.updateStatus(connection, config.getId(), "CRAWLED");
             //(Extract)29. Thêm thông tin đã crawl dữ liệu vào log
             dao.insertLog(connection, config.getId(), "CRAWLED", "End crawl, data to "+pathSource);
-            //
-            extractToStaging(connection, config);
+            //(Extract)30.
+            dao.updateIsProcessing(connection, config.getId(), false);
+            //(Extract)31.
+            dao.setFlagIsZero(connection, config.getId());
         } catch (IOException e) {
             //(Extract)22. Cập nhật status của config thành ERROR
             dao.updateStatus(connection, config.getId(), "ERROR");
@@ -266,9 +268,10 @@ public class Controller {
             dao.updateStatus(connection, config.getId(), "EXTRACTED");
             //(Extract to Staging)20. Thêm thông tin đã load dữ liệu vào staging vào log
             dao.insertLog(connection, config.getId(), "EXTRACTED", "Load data success");
-            //
-            transformData(connection, config);
-
+            //(Extract to Staging)21.
+            dao.updateIsProcessing(connection, config.getId(), false);
+            //(Extract to Staging)22.
+            dao.setFlagIsZero(connection, config.getId());
         } catch (SQLException e) {
             e.printStackTrace();
             dao.updateStatus(connection, config.getId(), "ERROR");
@@ -340,8 +343,10 @@ public class Controller {
             //(Transform Data)17. Thêm thông tin đã transform data vào log
             dao.insertLog(connection, config.getId(), "TRANSFORMED", "Transform success");
             System.out.println("transform success!");
-            //(Transform Data)18. Gọi function loadToWH(connect, config)
-            loadToWH(connection, config);
+            //(Transform Data)18.
+            dao.updateIsProcessing(connection, config.getId(), false);
+            //(Transform Data)19.
+            dao.setFlagIsZero(connection, config.getId());
         } catch (SQLException e) {
             // Xử lý lỗi khi thực hiện stored procedure
             e.printStackTrace();
@@ -385,8 +390,10 @@ public class Controller {
             //(Load To WH)17. Thêm thông tin đã load data to WH vào log
             dao.insertLog(connection, config.getId(), "WH_LOADED", "Load to warehouse success");
             System.out.println("load to warehouse success!");
-            //(Load To WH)18. Gọi function loadToAggregate(connect, config)
-            loadToAggregate(connection, config);
+            //(Load To WH)18.
+            dao.updateIsProcessing(connection, config.getId(), false);
+            //(Load To WH)19.
+            dao.setFlagIsZero(connection, config.getId());
         } catch (SQLException e) {
             // Xử lý lỗi khi thực hiện stored procedure
             e.printStackTrace();
@@ -430,8 +437,10 @@ public class Controller {
             //(Load To Aggregate)17. Thêm thông tin đã load data to aggregate vào log
             dao.insertLog(connection, config.getId(), "AGGREGATED", "Load aggregate success");
             System.out.println("aggregate success!");
-            //(Load To Aggregate)18. Gọi function loadToDataMart(connect, config)
-            loadToDataMart(connection, config);
+            //(Load To Aggregate)18.
+            dao.updateIsProcessing(connection, config.getId(), false);
+            //(Load To Aggregate)19.
+            dao.setFlagIsZero(connection, config.getId());
         }catch (SQLException e) {
             e.printStackTrace();
             //(Load To Aggregate)19. Cập nhật status của config thành ERROR
