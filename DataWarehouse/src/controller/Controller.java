@@ -99,7 +99,6 @@ public class Controller {
                 int responseCode = connectionHTTP.getResponseCode();
                 //Get ResponseCode
                 if (responseCode == HttpURLConnection.HTTP_OK) {
-                    //6. Get Data from response
                     BufferedReader reader = new BufferedReader(new InputStreamReader(connectionHTTP.getInputStream()));
                     StringBuilder response = new StringBuilder();
                     String line;
@@ -209,9 +208,9 @@ public class Controller {
             dao.updateStatus(connection, config.getId(), "CRAWLED");
             //(Extract)29. Thêm thông tin đã crawl dữ liệu vào log
             dao.insertLog(connection, config.getId(), "CRAWLED", "End crawl, data to "+pathSource);
-            //(Extract)30.
+            //(Extract)30. Cập nhật processing giá trị 0
             dao.updateIsProcessing(connection, config.getId(), false);
-            //(Extract)31.
+            //(Extract)31. Cập nhật flag giá trị 0
             dao.setFlagIsZero(connection, config.getId());
         } catch (IOException e) {
             //(Extract)22. Cập nhật status của config thành ERROR
@@ -222,6 +221,7 @@ public class Controller {
             dao.setFlagIsZero(connection, config.getId());
             //(Extract)25. Cập nhật trạng thái của config là không xử lý (isProcessing=false)
             dao.updateIsProcessing(connection, config.getId(), false);
+            //(Extract)26. Send mail thông báo lỗi cho email của author
             String mail = config.getEmail();
             DateTimeFormatter dt = DateTimeFormatter.ofPattern("hh:mm:ss dd/MM/yyyy");
             LocalDateTime nowTime = LocalDateTime.now();
@@ -268,9 +268,9 @@ public class Controller {
             dao.updateStatus(connection, config.getId(), "EXTRACTED");
             //(Extract to Staging)20. Thêm thông tin đã load dữ liệu vào staging vào log
             dao.insertLog(connection, config.getId(), "EXTRACTED", "Load data success");
-            //(Extract to Staging)21.
+            //(Extract to Staging)21. Cập nhật giá trị processing là 0
             dao.updateIsProcessing(connection, config.getId(), false);
-            //(Extract to Staging)22.
+            //(Extract to Staging)22. Cập nhật giá trị flag là 0
             dao.setFlagIsZero(connection, config.getId());
         } catch (SQLException e) {
             e.printStackTrace();
@@ -343,9 +343,9 @@ public class Controller {
             //(Transform Data)17. Thêm thông tin đã transform data vào log
             dao.insertLog(connection, config.getId(), "TRANSFORMED", "Transform success");
             System.out.println("transform success!");
-            //(Transform Data)18.
+            //(Transform Data)18. Cập nhật giá trị processing là 0
             dao.updateIsProcessing(connection, config.getId(), false);
-            //(Transform Data)19.
+            //(Transform Data)19. Cập nhật giá trị flag là 0
             dao.setFlagIsZero(connection, config.getId());
         } catch (SQLException e) {
             // Xử lý lỗi khi thực hiện stored procedure
@@ -390,9 +390,9 @@ public class Controller {
             //(Load To WH)17. Thêm thông tin đã load data to WH vào log
             dao.insertLog(connection, config.getId(), "WH_LOADED", "Load to warehouse success");
             System.out.println("load to warehouse success!");
-            //(Load To WH)18.
+            //(Load To WH)18. Cập nhật giá trị processing là 0
             dao.updateIsProcessing(connection, config.getId(), false);
-            //(Load To WH)19.
+            //(Load To WH)19. Cập nhật giá trị flag là 0
             dao.setFlagIsZero(connection, config.getId());
         } catch (SQLException e) {
             // Xử lý lỗi khi thực hiện stored procedure
